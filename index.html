@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Журнал скандинавской ходьбы</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a status strip for this week on top, then four tabs (прогулки · недели · прогрессия · основания); tables scroll inside their own frames. */
+:root {
+  --bg: #F2F6F4; --surface: #FFFFFF; --ink: #1F2E2A; --muted: #5C6E68; --line: #D3DDD8;
+  --accent: #2F5E4F; --accent-ink: #FFFFFF; --accent-soft: #E2EDE7;
+  --good: #2C6A45; --good-bg: #E3F1E8; --warn: #845F17; --warn-bg: #FBF0D9; --bad: #9C4232; --bad-bg: #FAE9E4;
+  --bar: #9CC3B2; --bar-strong: #2F5E4F;
+  --font-ui: "Golos Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111816; --surface: #19221F; --ink: #E2EBE7; --muted: #98AAA3; --line: #2C3934;
+  --accent: #82C3A8; --accent-ink: #0F1A16; --accent-soft: #1E312A;
+  --good: #8DD2A5; --good-bg: #1B3024; --warn: #E6BE6B; --warn-bg: #30271A; --bad: #EE9583; --bad-bg: #3A201A;
+  --bar: #3E6A5A; --bar-strong: #82C3A8; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111816; --surface: #19221F; --ink: #E2EBE7; --muted: #98AAA3; --line: #2C3934;
+  --accent: #82C3A8; --accent-ink: #0F1A16; --accent-soft: #1E312A;
+  --good: #8DD2A5; --good-bg: #1B3024; --warn: #E6BE6B; --warn-bg: #30271A; --bad: #EE9583; --bad-bg: #3A201A;
+  --bar: #3E6A5A; --bar-strong: #82C3A8; color-scheme: dark }
+
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px }
+h1 { font-size: 1.55rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-wrap: balance }
+h2 { font-size: 1.1rem; font-weight: 600; margin: 0; text-wrap: balance }
+h3 { font-size: .95rem; font-weight: 600; margin: 0 }
+p { margin: 0 }
+.muted { color: var(--muted) }
+.small { font-size: .85rem }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums }
+.eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600 }
+
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px }
+#sync { font-size: .82rem; color: var(--muted) }
+#sync.err { color: var(--bad) }
+
+/* status strip */
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r) }
+.strip > div { padding: 14px 16px; display: grid; gap: 4px; min-width: 0; border-left: 1px solid var(--line) }
+.strip > div:first-child { border-left: 0 }
+.strip .big { font-size: 1.45rem; font-weight: 600 }
+.dots { display: flex; gap: 6px; align-items: center }
+.dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent) }
+.dot.on { background: var(--accent) }
+@media (max-width: 620px) { .strip > div { border-left: 0; border-top: 1px solid var(--line) } .strip > div:first-child { border-top: 0 } }
+
+.note { padding: 10px 14px; border-radius: var(--r); font-size: .9rem }
+.note.warn { background: var(--warn-bg); color: var(--warn) }
+.note.bad { background: var(--bad-bg); color: var(--bad) }
+.note.info { background: var(--accent-soft); color: var(--ink) }
+
+/* tabs */
+nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line) }
+nav.tabs button { font: inherit; font-weight: 500; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent) }
+nav.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+
+.panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; min-width: 0 }
+.cols { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px; align-items: start }
+.cols.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) }
+@media (max-width: 900px) { .cols, .cols.even { grid-template-columns: minmax(0, 1fr) } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 14px; min-width: 0 }
+
+/* form */
+form { display: grid; gap: 12px }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px }
+.field { display: grid; gap: 4px; min-width: 0 }
+.field label { font-size: .8rem; color: var(--muted); font-weight: 500 }
+.field .hint { font-size: .75rem; color: var(--muted) }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0 }
+input.num { font-family: var(--font-num) }
+textarea { resize: vertical; min-height: 60px }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 10px }
+legend { font-weight: 600; font-size: .9rem; margin-bottom: 4px; padding: 0 }
+.calc { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .88rem; color: var(--muted) }
+.calc b { color: var(--ink); font-family: var(--font-num); font-weight: 600 }
+.row-btn { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+button.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink) }
+button.btn.ghost { background: transparent; color: var(--accent) }
+button.btn.danger { background: transparent; color: var(--bad); border-color: var(--bad) }
+button.btn:disabled { opacity: .5; cursor: default }
+#formMsg { font-size: .85rem }
+
+/* tables */
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface) }
+table { border-collapse: collapse; width: 100%; font-size: .88rem }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; vertical-align: middle }
+th { font-size: .74rem; font-weight: 600; color: var(--muted); background: var(--accent-soft); text-transform: uppercase; letter-spacing: .04em; white-space: normal; min-width: 64px }
+td.left, th.left { text-align: left }
+td.wrap { white-space: normal; min-width: 180px; max-width: 280px; text-align: left; color: var(--muted) }
+tr:last-child td { border-bottom: 0 }
+tbody tr.click { cursor: pointer }
+tbody tr.click:hover td { background: var(--accent-soft) }
+tr.sel td { background: var(--accent-soft) }
+.pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap }
+.pill.good { background: var(--good-bg); color: var(--good) }
+.pill.warn { background: var(--warn-bg); color: var(--warn) }
+.pill.bad { background: var(--bad-bg); color: var(--bad) }
+.pill.neutral { background: var(--accent-soft); color: var(--muted) }
+.missing { color: var(--warn); font-weight: 600 }
+td input.cell { width: 70px; padding: 4px 6px; text-align: center; background: var(--bg) }
+td input.cell.wide { width: 170px; text-align: left }
+
+/* chart */
+#chart svg { width: 100%; height: auto; display: block }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: .8rem; color: var(--muted) }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px }
+
+/* progression */
+.params { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+.param { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 6px; background: var(--surface) }
+.param input { width: 90px; font-family: var(--font-num) }
+.param p { font-size: .8rem; color: var(--muted) }
+ol, ul { margin: 0; padding-left: 20px; display: grid; gap: 6px }
+.borg { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px }
+.borg div { display: flex; gap: 8px; align-items: baseline; font-size: .88rem }
+.borg b { font-family: var(--font-num); min-width: 22px }
+a { color: var(--accent) }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted) }
+@media (prefers-reduced-motion: no-preference) { tbody tr.click td { transition: background .12s } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <p class="eyebrow">Скандинавская ходьба · три выхода в неделю · прибавка не более 5 мин</p>
+      <h1>Журнал прогулок</h1>
+    </div>
+    <span id="sync">Подключаюсь к хранилищу…</span>
+  </header>
+
+  <section class="strip" aria-label="Эта неделя">
+    <div><span class="eyebrow">Неделя</span><span class="big num" id="sWeek">—</span></div>
+    <div><span class="eyebrow">Выходов из 3</span><span class="dots" id="sDots"></span></div>
+    <div><span class="eyebrow">Минут в нагрузке</span><span class="big num" id="sMin">—</span></div>
+    <div><span class="eyebrow">Ориентир на выход</span><span class="big num" id="sTarget">—</span></div>
+    <div><span class="eyebrow">Следующий выход</span><span class="big num" id="sNext">—</span><span class="small muted" id="sNextNote"></span></div>
+  </section>
+  <div id="alerts" class="panel" style="gap:8px"></div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-walks" aria-controls="p-walks" aria-selected="true">Прогулки</button>
+    <button role="tab" id="t-weeks" aria-controls="p-weeks" aria-selected="false">Недели</button>
+    <button role="tab" id="t-prog" aria-controls="p-prog" aria-selected="false">Прогрессия</button>
+    <button role="tab" id="t-basis" aria-controls="p-basis" aria-selected="false">Основания</button>
+  </nav>
+
+  <!-- ПРОГУЛКИ -->
+  <section class="panel" id="p-walks" role="tabpanel">
+    <div class="cols">
+      <div class="card">
+        <h2 id="formTitle">Новая прогулка</h2>
+        <form id="walkForm" novalidate>
+          <fieldset>
+            <legend>Что показали часы</legend>
+            <div class="grid2">
+              <div class="field"><label for="fDate">Дата</label><input id="fDate" type="date" required></div>
+              <div class="field"><label for="fStart">Начало</label><input id="fStart" type="time"></div>
+              <div class="field"><label for="fDur">Длительность, мм:сс</label><input id="fDur" class="num" inputmode="numeric" placeholder="17:48" required></div>
+              <div class="field"><label for="fStops">Остановки, с</label><input id="fStops" class="num" type="number" min="0" step="1" placeholder="не оценены"></div>
+              <div class="field"><label for="fKm">Км</label><input id="fKm" class="num" type="number" min="0" step="0.01" placeholder="1.22"></div>
+              <div class="field"><label for="fHr">Ср. пульс</label><input id="fHr" class="num" type="number" min="30" max="220" step="1" placeholder="88"></div>
+              <div class="field"><label for="fHrMax">Макс. пульс</label><input id="fHrMax" class="num" type="number" min="30" max="220" step="1"></div>
+              <div class="field"><label for="fTemp">°C</label><input id="fTemp" class="num" type="number" step="1"></div>
+            </div>
+            <p class="hint small muted">Длительность в Huawei Health включает остановки: время без шагов (график каденса на нуле) вычитается.</p>
+          </fieldset>
+          <fieldset>
+            <legend>Как прошло</legend>
+            <div class="grid2">
+              <div class="field"><label for="fBorg">Борг, 6–20</label>
+                <select id="fBorg"><option value="">—</option></select></div>
+              <div class="field"><label for="fSym">Симптомы</label>
+                <select id="fSym"><option value="">—</option></select></div>
+              <div class="field"><label for="fMorning">Утром след. дня, 0–10</label>
+                <select id="fMorning"><option value="">заполню утром</option></select></div>
+            </div>
+            <div class="field"><label for="fNote">Маршрут, погода, заметка</label><textarea id="fNote" rows="2"></textarea></div>
+          </fieldset>
+          <div class="calc" id="calc"></div>
+          <div class="row-btn">
+            <button class="btn" type="submit" id="saveBtn">Сохранить</button>
+            <button class="btn ghost" type="button" id="newBtn">Очистить</button>
+            <button class="btn danger" type="button" id="delBtn" hidden>Удалить</button>
+          </div>
+          <p id="formMsg" role="status"></p>
+        </form>
+      </div>
+
+      <div class="panel" style="min-width:0">
+        <div class="card">
+          <div class="row-btn" style="justify-content:space-between"><h2>Время в нагрузке</h2>
+            <div class="legend"><span><i style="background:var(--bar)"></i>прогулка, мин</span><span><i style="background:var(--bar-strong);height:3px;vertical-align:3px"></i>ориентир недели</span></div></div>
+          <div id="chart"></div>
+        </div>
+        <div>
+          <p class="small muted" style="margin-bottom:8px">Нажмите на строку, чтобы дописать Борг, утро или исправить данные.</p>
+          <div class="tbl"><table>
+            <thead><tr><th class="left">Дата</th><th>Начало</th><th>В нагрузке, мин</th><th>Полное, мин</th><th>Км</th><th>Темп, мин:с/км</th><th>Ср. пульс</th><th>Борг</th><th>Симптомы</th><th>Утром</th><th class="left">Заметка</th></tr></thead>
+            <tbody id="walkRows"><tr><td colspan="11" class="empty">Здесь появятся прогулки. Добавьте первую через форму слева.</td></tr></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- НЕДЕЛИ -->
+  <section class="panel" id="p-weeks" role="tabpanel" hidden>
+    <div class="card" style="gap:6px">
+      <h2>Недели</h2>
+      <p class="small muted">Ориентир на выход задаёте вы с доктором — впишите его в столбце «Ориентир». «Прибавка (факт)» сравнивает самую длинную прогулку недели с самой длинной прошлой; первая неделя — с исходным временем до учёта. «Рекомендация» — подсказка по условиям с вкладки «Прогрессия».</p>
+    </div>
+    <div class="tbl"><table>
+      <thead><tr><th class="left">Неделя</th><th>Ориентир, мин</th><th>Выход 1</th><th>Выход 2</th><th>Выход 3</th><th>Всего, мин</th><th>Прибавка (факт)</th><th>Рекомендация на след. неделю</th><th>Состояние</th><th class="left">Если пропуск, причина</th></tr></thead>
+      <tbody id="weekRows"></tbody>
+    </table></div>
+    <div class="tbl"><table>
+      <thead><tr><th class="left">Месяц</th><th>Выходов</th><th>Минут в нагрузке</th><th>Км</th><th>Ср. пульс</th></tr></thead>
+      <tbody id="monthRows"></tbody>
+    </table></div>
+  </section>
+
+  <!-- ПРОГРЕССИЯ -->
+  <section class="panel" id="p-prog" role="tabpanel" hidden>
+    <div class="card" style="gap:6px">
+      <h2>Условия прибавки</h2>
+      <p class="small muted">Прибавка предлагается по самочувствию, а не по календарю: так чаще всего решают в клиниках кардиореабилитации. Значения можно менять — рекомендации пересчитаются. Последнее слово за доктором.</p>
+    </div>
+    <div class="params" id="params"></div>
+    <div class="cols even">
+      <div class="card">
+        <h3>Как читается рекомендация</h3>
+        <ol class="small">
+          <li><span class="pill bad">Стоп: обсудить с доктором</span> — боль или давление в груди, головокружение, перебои. Нагрузку не наращивать.</li>
+          <li><span class="pill warn">Заполните Борг / утро</span> — без этих данных решение принимается вслепую.</li>
+          <li><span class="pill neutral">Держать N мин</span> — меньше 3 выходов, Борг выше порога, утром хуже порога, любые симптомы или выход короче ориентира.</li>
+          <li><span class="pill good">Можно N мин</span> — все условия выполнены; прибавка не больше шага и цели этапа.</li>
+          <li><span class="pill neutral">Цель этапа достигнута</span> — дальше решает доктор: удлинять, ускорять или добавить выход.</li>
+        </ol>
+        <p class="small"><b>Прибавлять только время.</b> Темп комфортный: говорить можно, петь уже нет. Одна переменная за раз.</p>
+      </div>
+      <div class="card">
+        <h3>Ориентир по срокам</h3>
+        <div id="eta" class="small"></div>
+        <p class="small muted">Это нижняя граница: каждая неделя с «держать» сдвигает срок. ВОЗ — 150–300 мин умеренной активности в неделю (при трёх выходах 50+ мин) — дальний ориентир, не цель этого этапа.</p>
+        <h3>Вопросы доктору</h3>
+        <ol class="small">
+          <li>«+5 мин» — на одну прогулку или на неделю в сумме?</li>
+          <li>Входят ли в ориентир разминка и заминка (по 5–10 мин)?</li>
+          <li>Какой диапазон Борга или пульса для вас целевой?</li>
+          <li>Что после 30 мин: удлинять, ускорять или добавить четвёртый выход?</li>
+          <li>Как он оценивает +7,4 мин в первую неделю (с ≈10 до 17,4)?</li>
+        </ol>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Шкала Борга 6–20</h3>
+      <p class="small muted">Общее усилие во время прогулки, а не одно ощущение (ноги или дыхание).</p>
+      <div class="borg" id="borgLegend"></div>
+      <p class="note bad small">Боль или давление в груди, головокружение, перебои, одышка сильнее обычной — прекратить нагрузку и сообщить доктору.</p>
+    </div>
+  </section>
+
+  <!-- ОСНОВАНИЯ -->
+  <section class="panel" id="p-basis" role="tabpanel" hidden>
+    <div class="card">
+      <h2>Почему журнал устроен так</h2>
+      <ul class="small">
+        <li><b>Борг вместо «легко/тяжело».</b> Стандартная шкала из дневников кардиореабилитации; три градации не видят постепенных сдвигов. — <a href="https://georgia.kaiserpermanente.org/cardiac/wp-content/uploads/sites/9/2023/08/CardioActivityLog.pdf" target="_blank" rel="noopener">дневник Kaiser Permanente</a></li>
+        <li><b>Пульс рядом с Боргом.</b> С палками кислорода тратится примерно на 20% больше, пульс выше на 5–8 уд/мин, а субъективная тяжесть не растёт. — <a href="https://researchportal.bath.ac.uk/en/publications/field-testing-of-physiological-responses-associated-with-nordic-w/" target="_blank" rel="noopener">Church et al., 2002</a>; <a href="https://karger.com/res/article/89/3/221/290476/Nordic-Walking-Enhances-Oxygen-Uptake-without" target="_blank" rel="noopener">Barberan-Garcia et al., 2015</a></li>
+        <li><b>Пульс — тренд, не точка.</b> Датчик на запястье ошибается сильнее при работе руками; разброс до ~5 уд/мин. — <a href="https://www.citedrive.com/en/discovery/validity-of-four-consumergrade-optical-heart-rate-sensors-for-assessing-volume-and-intensity-distribution-of-physical-activity/" target="_blank" rel="noopener">Scand J Med Sci Sports</a></li>
+        <li><b>Утренняя оценка 0–10.</b> Форма взята из модели контроля боли; её пороги не переносились. — <a href="https://physicaltherapyfirst.com/blog/continued-sports-activity-using-a-pain-monitoring-model-during-rehabilitation-in-patients-with-achilles-tendinopathy/" target="_blank" rel="noopener">Silbernagel et al., 2007</a></li>
+        <li><b>Время в нагрузке = длительность − остановки.</b> На снимке 08.10 таймер Huawei шёл, пока шагов не было.</li>
+        <li><b>Прибавка по условиям, шаг — по доктору.</b> Клиники чаще всего повышают нагрузку при устойчиво лёгком Борге (56%) и начинают с длительности (78%); PCNA советует Борг 11–13. — <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8938824" target="_blank" rel="noopener">опрос клиник США</a>; <a href="https://pcna.net/wp-content/uploads/2018/12/12e_exercise_program_for_individuals_with_heart_disease.pdf" target="_blank" rel="noopener">PCNA</a>; <a href="https://open-exam-prep.com/study-guides/acsm-cpt/chapter-5-cardiorespiratory-programming/cardiorespiratory-progression-periodization" target="_blank" rel="noopener">ACSM</a></li>
+        <li><b>Правила «+10% в неделю» нет.</b> В рандомизированном исследовании оно не снизило число травм. — <a href="https://bjsm.bmj.com/content/43/2/155" target="_blank" rel="noopener">Buist et al., 2008</a></li>
+      </ul>
+      <p class="small muted">Протоколы исследований скандинавской ходьбы наращивают время быстрее вашего плана (<a href="https://link.springer.com/article/10.1007/s41999-026-01507-w" target="_blank" rel="noopener">пожилые, 2026</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10384741" target="_blank" rel="noopener">после ЧКВ, 2023</a>). Это не повод ускоряться: ваш план задан доктором.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ===== pure logic (no DOM) ===== */
+const L = (() => {
+  const DAY = 86400000;
+  const iso = d => d.toISOString().slice(0, 10);
+  const parse = s => new Date(s + 'T00:00:00Z');
+  const addDays = (s, n) => iso(new Date(parse(s).getTime() + n * DAY));
+  const weekStart = s => { const d = parse(s); const wd = (d.getUTCDay() + 6) % 7; return addDays(s, -wd); };
+  const ddmm = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) : '';
+  const ddmmyyyy = s => s ? ddmm(s) + '.' + s.slice(0, 4) : '';
+  const weekLabel = ws => ddmm(ws) + '–' + ddmmyyyy(addDays(ws, 6));
+  const mmss = sec => { if (sec == null || !isFinite(sec)) return ''; const s = Math.round(sec); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const parseDur = t => { if (t == null) return null; const m = String(t).trim().match(/^(?:(\d+):)?(\d{1,3}):(\d{2})$/); if (!m) return null; return (+(m[1] || 0)) * 3600 + (+m[2]) * 60 + (+m[3]); };
+  const r1 = x => Math.round(x * 10) / 10;
+  const fmt1 = x => x == null || !isFinite(x) ? '' : String(r1(x)).replace('.', ',');
+  const isNum = x => typeof x === 'number' && isFinite(x);
+  const loadMin = w => isNum(w.durSec) ? (w.durSec - (isNum(w.stopsSec) ? w.stopsSec : 0)) / 60 : null;
+  const fullMin = w => isNum(w.durSec) ? w.durSec / 60 : null;
+  const paceSec = w => isNum(w.durSec) && isNum(w.km) && w.km > 0 ? w.durSec / w.km : null;
+  const RED = ['Боль/давление в груди', 'Головокружение', 'Сердцебиение/перебои'];
+  const DEFAULTS = { step: 5, req: 3, borg: 13, morning: 2, tol: 1, goal: 30, baseline: 10 };
+
+  function weeksModel(walks, settings, today) {
+    const P = Object.assign({}, DEFAULTS, settings.params || {});
+    const targets = settings.targets || {}, reasons = settings.reasons || {};
+    const sorted = walks.filter(w => w.date && loadMin(w) > 0).sort((a, b) => (a.date + (a.start || '')).localeCompare(b.date + (b.start || '')));
+    const firstWeek = [settings.startWeek, sorted[0] && weekStart(sorted[0].date)].filter(Boolean).sort()[0] || weekStart(today);
+    const lastWeek = [weekStart(today), sorted.length && weekStart(sorted[sorted.length - 1].date)].filter(Boolean).sort().pop();
+    const weeks = [];
+    for (let ws = firstWeek; ws <= addDays(lastWeek, 7); ws = addDays(ws, 7)) {
+      const ww = sorted.filter(w => weekStart(w.date) === ws);
+      const loads = ww.map(loadMin);
+      const t = isNum(targets[ws]) ? targets[ws] : null;
+      weeks.push({ ws, walks: ww, loads, n: ww.length, total: loads.reduce((a, b) => a + b, 0), max: ww.length ? Math.max(...loads) : null, target: t, reason: reasons[ws] || '' });
+    }
+    weeks.forEach((w, i) => {
+      const prev = i ? weeks[i - 1] : null;
+      const prevMax = i === 0 ? (isNum(P.baseline) ? P.baseline : null) : (prev.n ? prev.max : null);
+      w.fact = w.n && prevMax != null ? r1(w.max - prevMax) : null;
+      w.planJump = prev && w.target != null && prev.target != null && w.target - prev.target > P.step;
+      w.status = status(w, today, prev);
+      w.rec = recommend(w, today, P);
+    });
+    return { weeks, P, sorted };
+  }
+
+  function status(w, today, prev) {
+    const end = addDays(w.ws, 6), cur = today <= end;
+    if (w.planJump) return { text: 'В плане прибавка больше 5 мин', kind: 'bad' };
+    if (prev && w.target != null && prev.target == null && prev.n) return { text: 'Укажите прошлый ориентир', kind: 'warn' };
+    if (!w.n) {
+      if (today < w.ws) return { text: w.target != null ? 'План задан' : '', kind: 'neutral' };
+      if (cur) return { text: 'Идёт: 0 из 3', kind: 'neutral' };
+      return w.reason ? { text: '0 из 3; пропуск', kind: 'neutral' } : { text: 'Данных нет', kind: 'warn' };
+    }
+    if (w.target == null) return { text: 'Укажите ориентир', kind: 'warn' };
+    if (w.n > 3) return { text: w.n + ' выходов; проверьте план', kind: 'warn' };
+    const over = w.max - w.target;
+    let t = w.n + ' из 3';
+    if (over > 0) t += '; +' + fmt1(over) + ' мин к ориентиру';
+    if (cur) t += '; неделя идёт';
+    return { text: t, kind: over > 0 ? 'warn' : (w.n >= 3 ? 'good' : 'neutral') };
+  }
+
+  function recommend(w, today, P) {
+    const n = w.n, B = w.target, end = addDays(w.ws, 6);
+    if (!n) return null;
+    if (today <= end && n < P.req) return { text: 'Неделя идёт', kind: 'neutral' };
+    const ww = w.walks;
+    if (ww.some(x => RED.includes(x.symptom))) return { text: 'Стоп: обсудить с доктором', kind: 'bad' };
+    if (B == null) return { text: 'Нет ориентира', kind: 'warn' };
+    const borgN = ww.filter(x => isNum(x.borg)).length, mornN = ww.filter(x => isNum(x.morning)).length;
+    if (borgN < n) return { text: `Заполните Борг (${borgN} из ${n})`, kind: 'warn' };
+    if (mornN < n) return { text: `Заполните «Утром» (${mornN} из ${n})`, kind: 'warn' };
+    const hold = why => ({ text: `Держать ${fmt1(B)} мин: ${why}`, kind: 'neutral' });
+    if (n < P.req) return hold(`${n} из ${P.req} выходов`);
+    const bMax = Math.max(...ww.map(x => x.borg)); if (bMax > P.borg) return hold('Борг до ' + bMax);
+    const mMax = Math.max(...ww.map(x => x.morning)); if (mMax > P.morning) return hold('утром до ' + mMax);
+    if (ww.some(x => x.symptom && x.symptom !== 'Нет')) return hold('были симптомы');
+    if (w.loads.some(m => m < B - P.tol)) return hold('не все выходы дотянули');
+    if (B >= P.goal) return { text: 'Цель этапа достигнута — к доктору', kind: 'neutral' };
+    return { text: `Можно ${fmt1(Math.min(B + P.step, P.goal))} мин`, kind: 'good' };
+  }
+
+  function nextWalk(model, today) {
+    const s = model.sorted; if (!s.length) return null;
+    const d = addDays(s[s.length - 1].date, 2);
+    const wk = model.weeks.find(w => w.ws === weekStart(d));
+    return { date: d, target: wk ? wk.target : null };
+  }
+
+  return { iso, addDays, weekStart, ddmm, ddmmyyyy, weekLabel, mmss, parseDur, fmt1, r1, isNum, loadMin, fullMin, paceSec, weeksModel, nextWalk, RED, DEFAULTS };
+})();
+if (typeof module !== 'undefined') module.exports = L;
+</script>
+
+<script>
+/* ===== UI ===== */
+(() => {
+if (typeof document === 'undefined') return;
+const $ = id => document.getElementById(id);
+const BORG = { 6: 'Нет напряжения', 7: 'Чрезвычайно легко', 8: '', 9: 'Очень легко', 10: '', 11: 'Легко', 12: '', 13: 'Немного тяжело', 14: '', 15: 'Тяжело', 16: '', 17: 'Очень тяжело', 18: '', 19: 'Чрезвычайно тяжело', 20: 'Максимальное усилие' };
+const SYMPTOMS = ['Нет', 'Одышка сильнее обычного', 'Боль/давление в груди', 'Головокружение', 'Сердцебиение/перебои', 'Боль в суставах/спине', 'Другое — в заметке'];
+const PARAMS = [
+  ['step', 'Шаг прибавки за неделю, мин', 'Указание доктора: не более 5 минут в неделю.'],
+  ['req', 'Выходов за неделю, чтобы прибавить', 'План доктора: три выхода в неделю.'],
+  ['borg', 'Борг — не выше', 'PCNA: 11–13, выше 13 — сбавить. Клиники США чаще используют 11–15.'],
+  ['morning', '«Утром» — не выше (0–10)', 'Допущение: 0–2 — «почти как обычно».'],
+  ['tol', 'Допуск к ориентиру, мин', 'Допущение: выход на 1 мин короче ориентира считается выполненным.'],
+  ['goal', 'Цель первого этапа, мин', 'ACSM: начальный этап — до ~30 мин; PCNA: 20–40 мин.'],
+  ['baseline', 'Исходное время до учёта, мин', 'Ваша запись: около 10 минут. Только для «прибавки» первой недели.'],
+];
+
+let db = null, walks = [], settings = {}, editingId = null, readOnly = false, gotWalks = false, gotSettings = false;
+const todayIso = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pill = r => r && r.text ? `<span class="pill ${r.kind}">${esc(r.text)}</span>` : '';
+
+/* selects */
+for (let i = 6; i <= 20; i++) $('fBorg').insertAdjacentHTML('beforeend', `<option value="${i}">${i}${BORG[i] ? ' — ' + BORG[i].toLowerCase() : ''}</option>`);
+SYMPTOMS.forEach(s => $('fSym').insertAdjacentHTML('beforeend', `<option>${s}</option>`));
+for (let i = 0; i <= 10; i++) $('fMorning').insertAdjacentHTML('beforeend', `<option value="${i}">${i}${i === 0 ? ' — как обычно' : i === 10 ? ' — очень плохо' : ''}</option>`);
+$('borgLegend').innerHTML = Object.entries(BORG).map(([k, v]) => `<div><b>${k}</b><span class="${v ? '' : 'muted'}">${v || '·'}</span></div>`).join('');
+
+/* tabs */
+const tabs = ['walks', 'weeks', 'prog', 'basis'];
+function showTab(t) {
+  tabs.forEach(x => { $('t-' + x).setAttribute('aria-selected', x === t); $('p-' + x).hidden = x !== t; });
+  try { localStorage.setItem('nw-tab', t); } catch (e) {}
+}
+tabs.forEach(x => $('t-' + x).addEventListener('click', () => showTab(x)));
+try { const t = location.hash.slice(1) || localStorage.getItem('nw-tab'); if (tabs.includes(t)) showTab(t); } catch (e) {}
+
+/* form */
+const F = { date: 'fDate', start: 'fStart', dur: 'fDur', stops: 'fStops', km: 'fKm', hr: 'fHr', hrMax: 'fHrMax', temp: 'fTemp', borg: 'fBorg', symptom: 'fSym', morning: 'fMorning', note: 'fNote' };
+const numOrNull = v => v === '' || v == null ? null : (isFinite(+v) ? +v : null);
+function readForm() {
+  return {
+    date: $('fDate').value, start: $('fStart').value || '', durSec: L.parseDur($('fDur').value),
+    stopsSec: numOrNull($('fStops').value), km: numOrNull($('fKm').value), hr: numOrNull($('fHr').value),
+    hrMax: numOrNull($('fHrMax').value), tempC: numOrNull($('fTemp').value), borg: numOrNull($('fBorg').value),
+    symptom: $('fSym').value || null, morning: numOrNull($('fMorning').value), note: $('fNote').value.trim(),
+  };
+}
+function fillForm(w) {
+  editingId = w ? w._id : null;
+  $('formTitle').textContent = w ? 'Прогулка ' + L.ddmmyyyy(w.date) : 'Новая прогулка';
+  $('fDate').value = w ? w.date : todayIso();
+  $('fStart').value = w ? (w.start || '') : '';
+  $('fDur').value = w && L.isNum(w.durSec) ? L.mmss(w.durSec) : '';
+  $('fStops').value = w && L.isNum(w.stopsSec) ? w.stopsSec : '';
+  $('fKm').value = w && L.isNum(w.km) ? w.km : '';
+  $('fHr').value = w && L.isNum(w.hr) ? w.hr : '';
+  $('fHrMax').value = w && L.isNum(w.hrMax) ? w.hrMax : '';
+  $('fTemp').value = w && L.isNum(w.tempC) ? w.tempC : '';
+  $('fBorg').value = w && L.isNum(w.borg) ? w.borg : '';
+  $('fSym').value = w && w.symptom ? w.symptom : '';
+  $('fMorning').value = w && L.isNum(w.morning) ? w.morning : '';
+  $('fNote').value = w ? (w.note || '') : '';
+  $('delBtn').hidden = !w; $('delBtn').dataset.armed = ''; $('delBtn').textContent = 'Удалить';
+  $('formMsg').textContent = '';
+  updateCalc(); renderWalkRows();
+}
+function updateCalc() {
+  const w = readForm();
+  const parts = [];
+  if (w.durSec != null) {
+    parts.push(`В нагрузке <b>${L.fmt1(L.loadMin(w))} мин</b>`);
+    if (w.km) parts.push(`темп <b>${L.mmss(L.paceSec(w))}</b>/км`);
+    if (w.km) parts.push(`скорость <b>${L.fmt1(w.km / (w.durSec / 3600))}</b> км/ч`);
+  } else if ($('fDur').value) parts.push('<span class="missing">Длительность в формате мм:сс, например 17:48</span>');
+  $('calc').innerHTML = parts.join(' · ');
+}
+$('walkForm').addEventListener('input', updateCalc);
+$('newBtn').addEventListener('click', () => fillForm(null));
+$('walkForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const w = readForm();
+  if (!w.date) return msg('Укажите дату.', true);
+  if (w.durSec == null) return msg('Укажите длительность с часов в формате мм:сс.', true);
+  if (w.stopsSec != null && w.stopsSec >= w.durSec) return msg('Остановки не могут быть длиннее прогулки.', true);
+  if (!db || readOnly) return msg('Сохранение недоступно в этом просмотре.', true);
+  const id = editingId || uniqueId(w.date);
+  const prev = walks.find(x => x._id === editingId) || {};
+  const { _id, ...prevBody } = prev;
+  const body = Object.assign({}, prevBody, w, { updatedAt: new Date().toISOString() });
+  $('saveBtn').disabled = true;
+  try {
+    await db.collection('walks').doc(id).set(body);
+    if (editingId && editingId !== id) await db.collection('walks').doc(editingId).delete();
+    editingId = id; msg('Сохранено.');
+    $('formTitle').textContent = 'Прогулка ' + L.ddmmyyyy(w.date); $('delBtn').hidden = false;
+  } catch (err) { writeError(err); }
+  finally { $('saveBtn').disabled = false; }
+});
+$('delBtn').addEventListener('click', async () => {
+  const b = $('delBtn');
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Точно удалить?'; return; }
+  try { await db.collection('walks').doc(editingId).delete(); fillForm(null); msg('Удалено.'); }
+  catch (err) { writeError(err); }
+});
+function uniqueId(date) { let id = date, k = 2; while (walks.some(x => x._id === id)) id = date + '_' + k++; return id; }
+function msg(t, bad) { $('formMsg').textContent = t; $('formMsg').style.color = bad ? 'var(--bad)' : 'var(--good)'; }
+function writeError(err) {
+  if (err && err.code === 'invalid_argument') { readOnly = true; msg('У вас нет права изменять этот журнал — он открыт только для просмотра.', true); }
+  else if (err && err.code === 'quota_exceeded') msg('Хранилище заполнено: удалите старые записи.', true);
+  else msg('Не сохранилось: ' + ((err && err.message) || 'ошибка связи') + '. Попробуйте ещё раз.', true);
+}
+
+/* settings writes */
+async function saveSettings(patch) {
+  if (!db || readOnly) return;
+  const ref = db.doc('settings/plan');
+  try { if (gotSettings && Object.keys(settings).length) await ref.update(patch); else await ref.set(Object.assign({}, settings, patch)); }
+  catch (err) { if (err && err.code === 'invalid_argument') readOnly = true; $('sync').textContent = 'Не сохранилось: ' + ((err && err.message) || err); $('sync').className = 'err'; }
+}
+
+/* render */
+function render() {
+  const today = todayIso();
+  const model = L.weeksModel(walks, settings, today);
+  renderStrip(model, today); renderWalkRows(); renderChart(model); renderWeeks(model); renderMonths(model); renderParams(model); renderEta(model, today); renderAlerts(model, today);
+}
+function renderStrip(model, today) {
+  const ws = L.weekStart(today), w = model.weeks.find(x => x.ws === ws);
+  $('sWeek').textContent = L.weekLabel(ws).replace(/\.\d{4}$/, '');
+  const n = w ? w.n : 0;
+  $('sDots').innerHTML = [0, 1, 2].map(i => `<span class="dot ${i < n ? 'on' : ''}"></span>`).join('') + `<span class="num" style="margin-left:6px">${n}</span>`;
+  $('sMin').textContent = w && w.n ? L.fmt1(w.total) : '0';
+  $('sTarget').textContent = w && w.target != null ? L.fmt1(w.target) + ' мин' : '—';
+  const nx = L.nextWalk(model, today);
+  $('sNext').textContent = nx ? L.ddmm(nx.date) : '—';
+  $('sNextNote').textContent = nx ? (nx.target != null ? 'ориентир ' + L.fmt1(nx.target) + ' мин · через день от последней' : 'задайте ориентир недели') : 'после первой прогулки';
+}
+function renderAlerts(model, today) {
+  const out = [];
+  const last = model.sorted[model.sorted.length - 1];
+  if (last && !L.isNum(last.morning) && last.date < today) out.push(`<p class="note warn">Как вы себя чувствовали утром после прогулки ${L.ddmm(last.date)}? <a href="#" data-edit="${esc(last._id)}">Заполнить</a></p>`);
+  const noBorg = model.sorted.filter(w => !L.isNum(w.borg));
+  if (noBorg.length) out.push(`<p class="note info">Без оценки по Боргу: ${noBorg.map(w => `<a href="#" data-edit="${esc(w._id)}">${L.ddmm(w.date)}</a>`).join(', ')}. Если помните ощущения — допишите.</p>`);
+  const red = model.sorted.filter(w => L.RED.includes(w.symptom));
+  if (red.length) out.push(`<p class="note bad">Отмечены тревожные симптомы (${red.map(w => L.ddmm(w.date)).join(', ')}). Не наращивайте нагрузку и сообщите доктору.</p>`);
+  $('alerts').innerHTML = out.join('');
+}
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-edit]'); if (!a) return;
+  e.preventDefault(); const w = walks.find(x => x._id === a.dataset.edit); if (w) { showTab('walks'); fillForm(w); $('fDate').focus(); }
+});
+function renderWalkRows() {
+  const rows = walks.slice().sort((a, b) => (b.date + (b.start || '')).localeCompare(a.date + (a.start || '')));
+  if (!rows.length) { $('walkRows').innerHTML = `<tr><td colspan="11" class="empty">${gotWalks ? 'Прогулок пока нет. Добавьте первую через форму.' : 'Загружаю прогулки…'}</td></tr>`; return; }
+  $('walkRows').innerHTML = rows.map(w => {
+    const sym = w.symptom ? (w.symptom === 'Нет' ? '<span class="muted">нет</span>' : `<span class="pill ${L.RED.includes(w.symptom) ? 'bad' : 'warn'}">${esc(w.symptom)}</span>`) : '<span class="missing">—</span>';
+    const stopsNote = L.isNum(w.stopsSec) ? '' : ' title="Остановки не оценены: равно полному времени"';
+    return `<tr class="click ${w._id === editingId ? 'sel' : ''}" data-edit="${esc(w._id)}" tabindex="0">
+      <td class="left num">${L.ddmmyyyy(w.date)}</td><td class="num">${esc(w.start || '')}</td>
+      <td class="num"${stopsNote}><b>${L.fmt1(L.loadMin(w))}</b>${L.isNum(w.stopsSec) ? '' : '<span class="muted">*</span>'}</td>
+      <td class="num">${L.fmt1(L.fullMin(w))}</td><td class="num">${L.isNum(w.km) ? String(w.km).replace('.', ',') : ''}</td>
+      <td class="num">${L.mmss(L.paceSec(w))}</td><td class="num">${L.isNum(w.hr) ? w.hr : ''}</td>
+      <td class="num">${L.isNum(w.borg) ? w.borg : '<span class="missing">—</span>'}</td><td>${sym}</td>
+      <td class="num">${L.isNum(w.morning) ? w.morning : '<span class="missing">—</span>'}</td>
+      <td class="wrap">${esc(w.note || '')}</td></tr>`;
+  }).join('') + (rows.some(w => !L.isNum(w.stopsSec)) ? `<tr><td colspan="11" class="left small muted" style="white-space:normal">* остановки не оценены — «в нагрузке» пока равно полному времени.</td></tr>` : '');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches && e.target.matches('tr[data-edit]')) e.target.click(); });
+
+function renderChart(model) {
+  const s = model.sorted; const el = $('chart');
+  if (!s.length) { el.innerHTML = '<p class="empty small">График появится после первой прогулки.</p>'; return; }
+  const tgtOf = w => { const wk = model.weeks.find(x => x.ws === L.weekStart(w.date)); return wk ? wk.target : null; };
+  const vals = s.map(L.loadMin), tg = s.map(tgtOf);
+  const top = Math.ceil(Math.max(30, ...vals, ...tg.filter(x => x != null)) / 5) * 5;
+  const W = 640, H = 220, pl = 34, pr = 10, pt = 14, pb = 30, iw = W - pl - pr, ih = H - pt - pb;
+  const bw = Math.min(46, iw / s.length * 0.6), step = iw / s.length;
+  const y = v => pt + ih - v / top * ih;
+  let g = '';
+  for (let v = 0; v <= top; v += 5) g += `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${pl - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--font-num)">${v}</text>`;
+  s.forEach((w, i) => {
+    const cx = pl + step * i + step / 2, v = vals[i];
+    g += `<rect x="${cx - bw / 2}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="3" fill="var(--bar)"><title>${L.ddmm(w.date)}: ${L.fmt1(v)} мин</title></rect>`;
+    g += `<text x="${cx}" y="${y(v) - 4}" text-anchor="middle" font-size="11" fill="var(--ink)" font-family="var(--font-num)">${L.fmt1(v)}</text>`;
+    g += `<text x="${cx}" y="${H - 10}" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--font-num)">${L.ddmm(w.date)}</text>`;
+    if (tg[i] != null) g += `<line x1="${cx - step / 2 + 2}" x2="${cx + step / 2 - 2}" y1="${y(tg[i])}" y2="${y(tg[i])}" stroke="var(--bar-strong)" stroke-width="3" stroke-linecap="round"><title>Ориентир ${L.fmt1(tg[i])} мин</title></line>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Время в нагрузке по прогулкам и ориентир недели">${g}</svg>`;
+}
+
+function renderWeeks(model) {
+  const today = todayIso();
+  const rows = model.weeks.slice().reverse();
+  $('weekRows').innerHTML = rows.map(w => {
+    const cur = w.ws <= today && today <= L.addDays(w.ws, 6);
+    const slot = i => w.loads[i] != null ? L.fmt1(w.loads[i]) : '';
+    const fact = w.fact == null ? '' : `<span class="pill ${w.fact > model.P.step ? 'bad' : 'neutral'}">${w.fact > 0 ? '+' : ''}${L.fmt1(w.fact)}</span>`;
+    return `<tr${cur ? ' class="sel"' : ''}>
+      <td class="left num">${L.weekLabel(w.ws)}</td>
+      <td><input class="cell num" id="tg-${w.ws}" data-target="${w.ws}" type="number" min="0" step="1" value="${w.target ?? ''}" aria-label="Ориентир на неделю ${L.weekLabel(w.ws)}" ${readOnly ? 'disabled' : ''}></td>
+      <td class="num">${slot(0)}</td><td class="num">${slot(1)}</td><td class="num">${slot(2)}</td>
+      <td class="num">${w.n ? L.fmt1(w.total) : ''}</td><td>${fact}</td><td>${pill(w.rec)}</td><td>${pill(w.status)}</td>
+      <td class="left"><input class="cell wide" id="rs-${w.ws}" data-reason="${w.ws}" type="text" value="${esc(w.reason)}" placeholder="${w.n ? '' : 'например, болел'}" aria-label="Причина пропуска" ${readOnly ? 'disabled' : ''}></td></tr>`;
+  }).join('');
+}
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.target) { const v = t.value === '' ? null : +t.value; saveSettings({ targets: { [t.dataset.target]: v } }); }
+  else if (t.dataset.reason) saveSettings({ reasons: { [t.dataset.reason]: t.value.trim() } });
+  else if (t.dataset.param) { const v = t.value === '' ? null : +t.value; if (v != null && isFinite(v)) saveSettings({ params: { [t.dataset.param]: v } }); }
+});
+
+function renderMonths(model) {
+  const by = {};
+  model.sorted.forEach(w => { const k = w.date.slice(0, 7); (by[k] = by[k] || []).push(w); });
+  const names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const keys = Object.keys(by).sort().reverse();
+  $('monthRows').innerHTML = keys.length ? keys.map(k => {
+    const ws = by[k], hrs = ws.filter(w => L.isNum(w.hr));
+    return `<tr><td class="left">${names[+k.slice(5) - 1]} ${k.slice(0, 4)}</td><td class="num">${ws.length}</td><td class="num">${L.fmt1(ws.reduce((a, w) => a + L.loadMin(w), 0))}</td>
+      <td class="num">${L.fmt1(ws.reduce((a, w) => a + (L.isNum(w.km) ? w.km : 0), 0)).replace(/,?$/, '')}</td><td class="num">${hrs.length ? Math.round(hrs.reduce((a, w) => a + w.hr, 0) / hrs.length) : ''}</td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="empty">${gotWalks ? 'Пока нет прогулок.' : 'Загружаю…'}</td></tr>`;
+}
+function renderParams(model) {
+  const box = $('params'); const focused = document.activeElement && document.activeElement.dataset && document.activeElement.dataset.param;
+  if (focused) return;
+  box.innerHTML = PARAMS.map(([k, label, why]) => `<div class="param"><label for="pa-${k}"><b>${label}</b></label>
+    <input id="pa-${k}" data-param="${k}" type="number" step="${k === 'baseline' ? '0.5' : '1'}" value="${model.P[k]}" ${readOnly ? 'disabled' : ''}><p>${why}</p></div>`).join('');
+}
+function renderEta(model, today) {
+  const w = model.weeks.find(x => x.ws === L.weekStart(today));
+  const cur = w && w.target; const P = model.P;
+  if (cur == null) { $('eta').innerHTML = '<p class="muted">Задайте ориентир текущей недели на вкладке «Недели».</p>'; return; }
+  const k = Math.max(0, Math.ceil((P.goal - cur) / P.step));
+  $('eta').innerHTML = `<p>Сейчас <b class="num">${L.fmt1(cur)} мин</b> на выход. Если прибавлять по ${L.fmt1(P.step)} мин каждую неделю без единой «держать»-недели, ${P.goal} мин — через <b class="num">${k}</b> нед., не раньше недели <b class="num">${L.weekLabel(L.addDays(w.ws, 7 * k))}</b>.</p>`;
+}
+
+/* data */
+render(); fillForm(null);
+(async () => {
+  try { db = await window.claude?.use?.('db'); } catch (e) { db = null; }
+  if (!db) { $('sync').textContent = 'Хранилище недоступно в этом просмотре — записи не сохраняются'; $('sync').className = 'err'; $('saveBtn').disabled = true; return; }
+  $('sync').textContent = 'Сохраняется автоматически';
+  db.collection('walks').onSnapshot(snap => {
+    walks = snap.docs.map(d => Object.assign({ _id: d.id }, d.data())); gotWalks = true; render();
+  }, err => { $('sync').textContent = 'Связь с хранилищем прервалась — обновите страницу'; $('sync').className = 'err'; });
+  db.doc('settings/plan').onSnapshot(snap => {
+    settings = snap.exists ? snap.data() : {}; gotSettings = true; render();
+  }, err => {});
+})();
+})();
+</script>
+
+</body>
+</html>
